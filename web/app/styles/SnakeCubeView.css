@@ -1,0 +1,22 @@
+/* SnakeCubeView.css */
+
+.snake-view-container {
+  height: 560px;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0a0e1a;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 768px) {
+  .snake-view-container {
+    height: 400px;
+  }
+}
+
+@media (max-width: 480px) {
+  .snake-view-container {
+    height: 320px;
+  }
+}

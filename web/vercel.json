@@ -1,8 +1,8 @@
 {
-    "rewrites": [
-      {
-        "source": "/(.*)",
-        "destination": "/index.html"
-      }
-    ]
-  }
+  "buildCommand": "npm run build && mkdir -p .vercel/output/static && cp -r build/client/* .vercel/output/static/",
+  "outputDirectory": ".vercel/output/static",
+  "framework": null,
+  "rewrites": [
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ]
+}

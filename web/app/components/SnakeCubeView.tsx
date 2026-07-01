@@ -11,6 +11,7 @@ interface SnakeCubeViewProps {
 }
 
 const SCALE = 2.2;
+// to test
 
 const toPos = (v: Vertex): [number, number, number] => [
   (v[0] - 1) * SCALE,

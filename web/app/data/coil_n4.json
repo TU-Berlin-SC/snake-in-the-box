@@ -1,0 +1,1 @@
+{"d": 3, "n": 4, "type": "coil", "is_cycle": true, "path": [[0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0], [3, 1, 0], [3, 2, 0], [3, 3, 0], [2, 3, 0], [1, 3, 0], [0, 3, 0], [0, 2, 0], [0, 1, 0]], "is_dummy": true, "is_verified_optimal": false, "note": "n=4, d=3 격자 바닥면(z=0) 테두리를 도는 placeholder 닫힌 루프입니다. coil/, convert_me/coil_bigger_boxes.py 의 실제 solver 결과로 교체해야 진짜 최적해가 됩니다."}

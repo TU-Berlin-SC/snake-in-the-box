@@ -43,13 +43,13 @@ const generateAllEdges = (vertices: Vertex[]): [Vertex, Vertex][] => {
   return edges;
 };
 
-// 몸통 연결 (튜브)
-function SnakeTube({ points }: { points: THREE.Vector3[] }) {
+// 몸통 연결 (튜브). closed=true면 마지막 점을 첫 점과 이어서 고리로 닫음 (coil용)
+function SnakeTube({ points, closed }: { points: THREE.Vector3[]; closed: boolean }) {
   const geometry = useMemo(() => {
     if (points.length < 2) return null;
-    const curve = new THREE.CatmullRomCurve3(points, false, "catmullrom", 0.1);
-    return new THREE.TubeGeometry(curve, Math.max(points.length * 6, 12), 0.12, 8, false);
-  }, [points]);
+    const curve = new THREE.CatmullRomCurve3(points, closed, "catmullrom", 0.1);
+    return new THREE.TubeGeometry(curve, Math.max(points.length * 6, 12), 0.12, 8, closed);
+  }, [points, closed]);
 
   if (!geometry) return null;
   return (
@@ -122,7 +122,12 @@ const SnakeCubeView: React.FC<SnakeCubeViewProps> = ({ data, revealCount }) => {
     () => data.path.slice(0, Math.max(1, Math.min(revealCount, data.path.length))),
     [data.path, revealCount]
   );
-  
+
+  // coil(닫힌 루프)이고 전체 경로가 다 드러난 시점에만 첫 점을 다시 이어붙여서 고리를 닫음.
+  // 재생 도중에는 열린 뱀처럼 계속 자라나다가 마지막에 스냅되어 닫힘.
+  const isFullyRevealed = revealed.length === data.path.length;
+  const shouldClose = data.is_cycle && isFullyRevealed && revealed.length > 2;
+
   const revealedPositions = useMemo(
     () => revealed.map((v) => new THREE.Vector3(...toPos(v))),
     [revealed]
@@ -143,7 +148,7 @@ const SnakeCubeView: React.FC<SnakeCubeViewProps> = ({ data, revealCount }) => {
 
         {/* 뱀 몸통 (튜브) */}
         {revealedPositions.length >= 2 && (
-          <SnakeTube points={revealedPositions} />
+          <SnakeTube points={revealedPositions} closed={shouldClose} />
         )}
 
         {/* 머리 (초록색 점) */}
@@ -154,8 +159,8 @@ const SnakeCubeView: React.FC<SnakeCubeViewProps> = ({ data, revealCount }) => {
           </mesh>
         )}
 
-        {/* 꼬리 (빨간색 점) */}
-        {revealedPositions.length > 0 && (
+        {/* 꼬리 (빨간색 점). coil이 닫히면 머리와 겹쳐서 하나의 고리로 보임 */}
+        {revealedPositions.length > 0 && !shouldClose && (
           <mesh position={revealedPositions[0]}>
             <sphereGeometry args={[0.16, 12, 12]} />
             <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.3} />

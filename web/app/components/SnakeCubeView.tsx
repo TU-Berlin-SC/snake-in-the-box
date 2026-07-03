@@ -69,10 +69,10 @@ function GridLines({ vertices }: { vertices: Vertex[] }) {
         <Line
           key={`grid-${i}`}
           points={[toPos(a), toPos(b)]}
-          color="#4a5568"
+          color="#64748b"
           lineWidth={1}
           transparent
-          opacity={0.3}
+          opacity={0.5}
         />
       ))}
     </>
@@ -136,7 +136,7 @@ const SnakeCubeView: React.FC<SnakeCubeViewProps> = ({ data, revealCount }) => {
   return (
     <div className="snake-view-container">
       <Canvas camera={{ position: [5, 4, 5], fov: 40 }}>
-        <color attach="background" args={["#0a0e1a"]} />
+        <color attach="background" args={["#121a2e"]} />
         <OrbitControls enableDamping dampingFactor={0.08} />
         
         <ambientLight intensity={0.7} />

@@ -49,7 +49,7 @@ export const ALGORITHMS: AlgorithmOption[] = [
   {
     id: "grid_coil_bigger_boxes",
     type: "coil",
-    label: "Coil · n진 격자 (bigger boxes)",
+    label: "Coil · n grid (bigger boxes)",
     script: "convert_me/coil_bigger_boxes.py",
   },
 ];

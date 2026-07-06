@@ -51,7 +51,7 @@ export default function Home() {
         }
         return c + 1;
       });
-    }, 700);
+    }, 800); // 800ms마다 한 칸씩 이동
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };

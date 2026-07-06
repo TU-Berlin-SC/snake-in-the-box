@@ -13,6 +13,11 @@ interface SnakeCubeViewProps {
 const SCALE = 2.2;
 // to test
 
+// [이동 로직 1] 격자 좌표 -> 3D 공간 좌표 변환
+// JSON에는 [0,1,2] 같은 "격자 위 정수 좌표"만 들어있음 (실제 이동 계산 없음).
+// 여기서 하는 건 그 정수 좌표를 Three.js 씬에서 쓸 실수 좌표로 스케일링 +
+// 중심 이동만 하는 것 —> 좌표계 변환일 뿐, 뱀이 움직이는 계산은 없음.
+// (x,y) convertion
 const toPos = (v: Vertex): [number, number, number] => [
   (v[0] - 1) * SCALE,
   (v[1] - 1) * SCALE,
@@ -43,6 +48,11 @@ const generateAllEdges = (vertices: Vertex[]): [Vertex, Vertex][] => {
   return edges;
 };
 
+// [이동 로직 3] 잘라낸 점들을 부드러운 곡선(튜브)으로 이어붙임.
+// points는 이미 순서가 정해진 좌표 리스트(revealedPositions)라서,
+// 여기서 하는 건 "점 A에서 점 B로 이동"이 아니라 그 점들을 지나는
+// 곡선을 한 번에 계산해서 관(tube) 모양 지오메트리를 만드는 것뿐.
+// closed=true면 마지막 점과 첫 점을 다시 이어서 고리로 닫음 (coil용).
 // 몸통 연결 (튜브). closed=true면 마지막 점을 첫 점과 이어서 고리로 닫음 (coil용)
 function SnakeTube({ points, closed }: { points: THREE.Vector3[]; closed: boolean }) {
   const geometry = useMemo(() => {
@@ -118,6 +128,11 @@ const SnakeCubeView: React.FC<SnakeCubeViewProps> = ({ data, revealCount }) => {
     return { vertices, n };
   }, [data.n]);
 
+  // [이동 로직 2] 몇 걸음 왔는지로 전체 경로를 앞에서부터 잘라냄.
+  // data.path는 이미 solver가 정해놓은 전체 순서(고정된 배열)이고,
+  // revealCount가 바뀔 때마다 이 배열의 앞부분만 다시 잘라서 보여줌.
+  // 즉 재생/애니메이션은 실제 이동 계산이 아니라 이 slice 길이를
+  // 타이머로 늘리는 것뿐 (Home.tsx의 setInterval 참고).
   const revealed = useMemo(
     () => data.path.slice(0, Math.max(1, Math.min(revealCount, data.path.length))),
     [data.path, revealCount]

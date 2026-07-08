@@ -109,7 +109,7 @@ function SnakeTube({
   );
 }
 
-// 뱀 머리: 진행 방향을 바라보는 둥근 머리 + 눈 2개 + 빨간 혀
+// 뱀 머리: 진행 방향을 바라보는 둥근 머리 + 사선(slanted) 만화 눈 + 큰 두 갈래 혀
 function SnakeHead({
   position,
   direction,
@@ -127,40 +127,60 @@ function SnakeHead({
   }, [direction]);
 
   const r = radius;
+  // 머리 타원체의 반지름들 (아래 <mesh scale>과 반드시 일치해야 눈이 표면에 붙음)
+  const RX = 1.35, RY = 1.2, RZ = 1.7;
+
+  // 눈 위치: 타원체 표면 방정식 (x/RX)²+(y/RY)²+(z/RZ)² = 1 을 만족하는
+  // 단위방향 (0.6, 0.55, 0.55) 근처 점. 0.97을 곱해 표면보다 살짝 안쪽에 박아서
+  // "튀어나옴"을 방지 — 눈 두께의 절반쯤만 표면 위로 나오게 됨.
+  const eyeX = 0.6 * RX * r * 0.77;
+  const eyeY = 0.55 * RY * r * 0.9;
+  const eyeZ = 0.55 * RZ * r * 1.15;
+
   return (
     <group position={position} quaternion={quaternion}>
       {/* 머리통: 몸통보다 살짝 크고 앞뒤로 길쭉 */}
-      <mesh scale={[1.35, 1.2, 1.7]}>
+      <mesh scale={[RX, RY, RZ]}>
         <sphereGeometry args={[r, 20, 20]} />
         <meshStandardMaterial color={SNAKE_GREEN} roughness={0.5} />
       </mesh>
-      {/* 눈: 까만 단추 눈 + 작은 하이라이트 (귀여움 담당) */}
-      {[-1, 1].map((side) => (
-        <group key={side} position={[side * r * 0.62, r * 0.72, r * 0.55]}>
-          <mesh>
-            <sphereGeometry args={[r * 0.26, 12, 12]} />
-            <meshStandardMaterial color="#1a1a1a" roughness={0.25} />
-          </mesh>
-          <mesh position={[side * r * 0.07, r * 0.09, r * 0.16]}>
-            <sphereGeometry args={[r * 0.07, 8, 8]} />
-            <meshStandardMaterial color="#ffffff" roughness={0.1} />
-          </mesh>
-        </group>
-      ))}
-      {/* 혀: 빨간 원기둥 + 끝 두 갈래 */}
-      <group position={[0, -r * 0.15, r * 1.8]}>
+
+      {/* 눈: 진짜 slanted — 기울어진 얇은 직선 막대 ＼ ／.
+          capsule(양끝이 둥근 막대)을 옆으로 눕히고 EYE_SLANT만큼 기울인 것.
+          얇은 막대라 튀어나올 덩어리 없음.
+          - EYE_SLANT: 기울기 각도(라디안). 키우면 더 가파르게 기울어짐.
+          - 부호 뒤집으면 ／ ＼ (반대 방향 슬랜트)로 바뀜. */}
+      {[-1, 1].map((side) => {
+        const EYE_SLANT = 0.45;
+        return (
+          <group
+            key={side}
+            position={[side * eyeX, eyeY, eyeZ]}
+            rotation={[0, side * 0.5, 0]}
+          >
+            <mesh rotation={[0, 0, Math.PI / 2 + side * EYE_SLANT]}>
+              {/* capsule: (반지름=선 굵기, 길이) */}
+              <capsuleGeometry args={[r * 0.1, r * 0.42, 4, 8]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.3} />
+            </mesh>
+          </group>
+        );
+      })}
+
+      {/* 혀: 큼직한 만화 혀. 줄기 + 끝에서 바깥으로 벌어지는 두 갈래 */}
+      <group position={[0, -r * 0.15, r * 1.9]}>
         <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[r * 0.07, r * 0.07, r * 0.9, 8]} />
+          <cylinderGeometry args={[r * 0.09, r * 0.07, r * 1.6, 8]} />
           <meshStandardMaterial color="#e53935" roughness={0.4} />
         </mesh>
         {[-1, 1].map((side) => (
           <mesh
             key={side}
-            position={[side * r * 0.12, 0, r * 0.55]}
-            rotation={[Math.PI / 2, 0, -side * 0.5]}
+            position={[side * r * 0.22, 0, r * 1.05]}
+            rotation={[Math.PI / 2, 0, -side * 0.6]}
           >
-            {/* radiusTop(앞쪽 끝)을 얇게 해서 끝으로 갈수록 가늘어지는 갈래 */}
-            <cylinderGeometry args={[r * 0.02, r * 0.05, r * 0.35, 6]} />
+            {/* radiusTop(앞쪽 끝)을 얇게 -> 끝으로 갈수록 가늘어지는 갈래 */}
+            <cylinderGeometry args={[r * 0.02, r * 0.07, r * 0.6, 6]} />
             <meshStandardMaterial color="#e53935" roughness={0.4} />
           </mesh>
         ))}
@@ -216,16 +236,14 @@ function GridLines({ vertices, toPos }: { vertices: Vertex[]; toPos: (v: Vertex)
   );
 }
 
-// 별 배경 (adjusted size and location)
+// 별 배경
 function Stars() {
   const stars = useMemo(() => {
     const positions = [];
     for (let i = 0; i < 300; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
-    //   const r = 20 + Math.random() * 15;
-     // 카메라보다 살짝 먼 거리에 별 배치
-     const r = BOX_SIZE * 2 + Math.random() * 5;  // 8.8 ~ 13.8 (카메라 6.82보다 약간 밖)
+      const r = 20 + Math.random() * 15;
       positions.push(
         r * Math.sin(phi) * Math.cos(theta),
         r * Math.sin(phi) * Math.sin(theta),
@@ -245,7 +263,7 @@ function Stars() {
           itemSize={3}
         />
       </bufferGeometry>
-      <pointsMaterial color="#ffffff" size={0.09} transparent opacity={0.4} sizeAttenuation />
+      <pointsMaterial color="#ffffff" size={0.06} transparent opacity={0.4} sizeAttenuation />
     </points>
   );
 }
@@ -259,9 +277,9 @@ const SnakeCubeView: React.FC<SnakeCubeViewProps> = ({ data, revealCount }) => {
     return { vertices, n };
   }, [n]);
 
-  // 튜브 반지름을 격자 간격에 비례시켜서 n이 커져도 부담스럽게 두꺼워지지 않게 (camera view)
+  // 튜브 반지름을 격자 간격에 비례시켜서 n이 커져도 부담스럽게 두꺼워지지 않게
   const spacing = BOX_SIZE / Math.max(n - 1, 1);
-  const tubeRadius = Math.min(spacing * 0.17, 0.24);
+  const tubeRadius = Math.min(spacing * 0.13, 0.18);
 
   // [이동 로직 2] "몇 걸음 왔는지"로 전체 경로를 앞에서부터 잘라냄.
   // data.path는 solver가 정해놓은 전체 순서(고정 배열)이고, revealCount가
@@ -281,34 +299,24 @@ const SnakeCubeView: React.FC<SnakeCubeViewProps> = ({ data, revealCount }) => {
     const positions = revealed.map((v) => new THREE.Vector3(...toPos(v)));
     // coil 완성 시: 머리쪽·꼬리쪽 양 끝을 상대방 쪽으로 85%까지 늘려서
     // 한 칸짜리 갭을 아주 작은 틈으로 줄임 (우로보로스 느낌)
-    // if (data.is_cycle && positions.length === data.path.length && positions.length > 2) {
-    //   const first = positions[0];
-    //   const last = positions[positions.length - 1];
-    //   // 조절 구간
-    //   // 꼬리 앞에 first에서 last 쪽으로 85% 간 점 삽입
-    //   const nearTail = first.clone().lerp(last.clone(), 0.05);
-    //   // 머리 뒤에 last에서 first 쪽으로 85% 간 점 추가
-    //   const nearHead = last.clone().lerp(first.clone(), 0.2);
-    //   return [nearTail, ...positions, nearHead];
-    // }
     if (data.is_cycle && positions.length === data.path.length && positions.length > 2) {
-        const first = positions[0];
-        const last = positions[positions.length - 1];
-        
-        if (n === 2) {
-          // n=2 전용: 아주 작은 비율로 갭을 크게
-          const nearTail = first.clone().lerp(last.clone(), 0.1);
-          const nearHead = last.clone().lerp(first.clone(), 0.6);
-          return [nearTail, ...positions, nearHead];
-        }
-        
-        // n>=3: 기존 비율
-        const nearTail = first.clone().lerp(last.clone(), 0.05);
-        const nearHead = last.clone().lerp(first.clone(), 0.2);
+      const first = positions[0];
+      const last = positions[positions.length - 1];
+
+      if (n === 2) {
+        // n=2 전용: 칸이 커서 갭 비율을 따로 조정
+        const nearTail = first.clone().lerp(last.clone(), 0.1);
+        const nearHead = last.clone().lerp(first.clone(), 0.6);
         return [nearTail, ...positions, nearHead];
       }
+
+      // n>=3
+      const nearTail = first.clone().lerp(last.clone(), 0.05);
+      const nearHead = last.clone().lerp(first.clone(), 0.2);
+      return [nearTail, ...positions, nearHead];
+    }
     return positions;
-  }, [revealed, toPos, data.is_cycle, data.path.length]);
+  }, [revealed, toPos, data.is_cycle, data.path.length, n]);
 
   // 머리 방향: 마지막 두 점의 차. coil이 닫힌 상태면 "다음 점 = 첫 점"이므로 그쪽으로
   const headDir = useMemo(() => {

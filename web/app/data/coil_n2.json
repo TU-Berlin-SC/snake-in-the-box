@@ -1,1 +1,1 @@
-{"d": 3, "n": 2, "type": "coil", "is_cycle": true, "path": [[1, 0, 1], [1, 1, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0], [1, 0, 0]], "is_dummy": false, "is_verified_optimal": true, "note": "Optimal coil solution for d=3, n=2 (source: sol_coil_d3_n2.txt)."}
+{"d": 3, "n": 2, "type": "coil", "is_cycle": true, "path": [[0, 0, 0], [0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 0, 1], [1, 0, 0]], "is_dummy": false, "is_verified_optimal": true, "note": "Optimal coil solution for d=3, n=2 (source: sol_coil_d3_n2.txt)."}

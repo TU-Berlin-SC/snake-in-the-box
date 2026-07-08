@@ -51,6 +51,25 @@ def is_already_ordered_cycle(pts):
     return True
 
 
+def canonicalize_cycle(pts):
+    """
+    Purely cosmetic normalization for closed cycles: rotate so the cycle
+    starts at the lexicographically smallest vertex, and pick the direction
+    whose second vertex is smaller. Mathematically the cycle is unchanged --
+    this just makes the animation always start from the same predictable
+    corner regardless of how the solver/reconstruction happened to order it.
+    """
+    if len(pts) < 3:
+        return pts
+    start_idx = min(range(len(pts)), key=lambda i: pts[i])
+    rotated = pts[start_idx:] + pts[:start_idx]
+    # two possible directions from the start vertex; pick the one whose
+    # next vertex is lexicographically smaller
+    forward = rotated
+    backward = [rotated[0]] + list(reversed(rotated[1:]))
+    return forward if forward[1] <= backward[1] else backward
+
+
 def convert_file(txt_path, out_dir):
     text = open(txt_path, encoding="utf-8").read()
     pts = parse_coords(text)
@@ -67,6 +86,8 @@ def convert_file(txt_path, out_dir):
         ordered, is_cycle = path_from_active_vertices(pts)
         if not is_cycle:
             print(f"warning: {txt_path} reconstructed as an OPEN path, not a cycle")
+
+    ordered = canonicalize_cycle(ordered)
 
     out_path = os.path.join(out_dir, f"coil_n{n}.json")
     export_to_json(

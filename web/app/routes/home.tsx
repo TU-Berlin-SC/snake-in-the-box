@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ClientOnly from "../components/ClientOnly";
 import SnakeCubeView from "~/components/SnakeCubeView";
-import { ALGORITHMS } from "../data/algorithms";
 import "../styles/Home.css";
 import type { AlgorithmType, SnakeData } from "../types/snake";
 
 const N_OPTIONS = [2, 3, 4, 5, 6];
+const TYPE_OPTIONS: { value: AlgorithmType; label: string }[] = [
+  { value: "coil", label: "Coil" },
+  { value: "snake", label: "Snake" },
+];
 
 // snake_n*.json, coil_n*.json 전부 번들에 포함
 const dataModules = import.meta.glob<{ default: SnakeData }>(
@@ -21,25 +24,20 @@ function getSnakeData(type: AlgorithmType, n: number): SnakeData | null {
 }
 
 export default function Home() {
-  const [n, setN] = useState(3); // 기본값 3으로 변경
-  const [algorithmId, setAlgorithmId] = useState(ALGORITHMS[0].id);
+  const [n, setN] = useState(3);
+  const [type, setType] = useState<AlgorithmType>("coil"); // 실제 solve 결과가 있는 coil을 기본값으로
   const [revealCount, setRevealCount] = useState(1);
   const [playing, setPlaying] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const algorithm = useMemo(
-    () => ALGORITHMS.find((a) => a.id === algorithmId) ?? ALGORITHMS[0],
-    [algorithmId]
-  );
-  const snake = useMemo(
-    () => getSnakeData(algorithm.type, n),
-    [algorithm.type, n]
-  );
+  const snake = useMemo(() => getSnakeData(type, n), [type, n]);
 
+  // n/type이 바뀌면 재생 중이던 걸 멈추고, 완성된 최종 결과를 바로 보여줌
+  // (Tim: "the user should see the result immediately", 재생은 원하면 누르는 옵션)
   useEffect(() => {
-    setRevealCount(1);
     setPlaying(false);
-  }, [n, algorithmId]);
+    setRevealCount(snake ? snake.path.length : 1);
+  }, [n, type, snake]);
 
   useEffect(() => {
     if (!playing || !snake) return;
@@ -57,7 +55,44 @@ export default function Home() {
     };
   }, [playing, snake]);
 
-  if (!snake) return null;
+  if (!snake) {
+    return (
+      <main className="home-container">
+        <div className="header">
+          <h1>
+            🐍 Snake in the Box
+            <span className="badge">d = 3</span>
+          </h1>
+        </div>
+        <div className="n-selector">
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as AlgorithmType)}
+            className="rounded-lg border border-slate-700 bg-slate-900 text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-lime-400"
+          >
+            {TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {N_OPTIONS.map((option) => (
+            <button
+              key={option}
+              onClick={() => setN(option)}
+              className={`n-button ${option === n ? "active" : ""}`}
+            >
+              n = {option}
+            </button>
+          ))}
+        </div>
+        <p className="dummy-note">
+          ⚠️ No {type} solution file found for n = {n} (app/data/{type}_n
+          {n}.json is missing).
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main className="home-container">
@@ -66,15 +101,27 @@ export default function Home() {
           🐍 Snake in the Box
           <span className="badge">d = 3</span>
         </h1>
+        {/* TODO(Tim): swap for the exact mathematical description once he sends it */}
         <p className="subtitle">
-          {algorithm.type === "coil"
-            ? `A coil looping around an ${n}×${n}×${n} cube grid without touching itself.`
-            : `The problem of a snake slithering on an ${n}×${n}×${n} cube grid without touching itself.`}
+          {type === "coil"
+            ? `Closed loop of ${snake.path.length} points on a ${n}×${n}×${n} grid, no two non-consecutive points adjacent.`
+            : `Open path of ${snake.path.length} points on a ${n}×${n}×${n} grid, no two non-consecutive points adjacent.`}
         </p>
       </div>
 
-      {/* N selector */}
+      {/* type dropdown + N selector, same row */}
       <div className="n-selector">
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value as AlgorithmType)}
+          className="rounded-lg border border-slate-700 bg-slate-900 text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-lime-400"
+        >
+          {TYPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
         {N_OPTIONS.map((option) => (
           <button
             key={option}
@@ -84,25 +131,6 @@ export default function Home() {
             n = {option}
           </button>
         ))}
-      </div>
-
-      {/* algorithm selector (dropdown, tailwind) */}
-      <div className="flex flex-col items-center gap-1 mt-3 mb-1">
-        <label className="text-xs uppercase tracking-wide text-slate-400">
-          Algorithm
-        </label>
-        <select
-          value={algorithmId}
-          onChange={(e) => setAlgorithmId(e.target.value)}
-          className="rounded-lg border border-slate-700 bg-slate-900 text-white text-sm px-3 py-2 min-w-[260px] focus:outline-none focus:ring-1 focus:ring-lime-400"
-        >
-          {ALGORITHMS.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.label}
-            </option>
-          ))}
-        </select>
-        <span className="text-[11px] text-slate-500">{algorithm.script}</span>
       </div>
 
       {/* cube view */}

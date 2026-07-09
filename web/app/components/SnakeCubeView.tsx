@@ -22,8 +22,17 @@ const BOX_SIZE = 4.4;
 // 축 순서 주의: matplotlib(원본 solutions/*.png)는 Z축이 "위"인 관례를 쓰는데,
 // Three.js는 Y축이 "위"인 관례를 씀. 그래서 격자의 z좌표를 Three.js의 y(위)에,
 // 격자의 y좌표를 Three.js의 z(안쪽/바깥쪽)에 매핑해서 png랑 위아래가 맞게 함.
-function makeToPos(n: number) {
+function makeToPos(n: number, d: number) {
   const span = Math.max(n - 1, 1);
+  if (d === 2) {
+    // d=2: [x, y] 2-tuple. 격자를 바닥 평면(y=0)에 평평하게 눕힘 —
+    // 3D 궤도 컨트롤 그대로 쓰면서 위에서 내려다보면 2D 그림이 됨.
+    return (v: Vertex): [number, number, number] => [
+      (v[0] / span - 0.5) * BOX_SIZE, // grid x -> three.js x
+      0,                              // 높이 고정 (바닥 평면)
+      (v[1] / span - 0.5) * BOX_SIZE, // grid y -> three.js z
+    ];
+  }
   return (v: Vertex): [number, number, number] => [
     (v[0] / span - 0.5) * BOX_SIZE, // grid x -> three.js x
     (v[2] / span - 0.5) * BOX_SIZE, // grid z (matplotlib 기준 "위") -> three.js y (위)
@@ -31,8 +40,14 @@ function makeToPos(n: number) {
   ];
 }
 
-const generateAllVertices = (n: number): Vertex[] => {
+const generateAllVertices = (n: number, d: number): Vertex[] => {
   const vertices: Vertex[] = [];
+  if (d === 2) {
+    for (let x = 0; x < n; x++)
+      for (let y = 0; y < n; y++)
+        vertices.push([x, y, 0]); // 셋째 좌표는 isGridNeighbor 계산용 패딩
+    return vertices;
+  }
   for (let x = 0; x < n; x++)
     for (let y = 0; y < n; y++)
       for (let z = 0; z < n; z++)
@@ -270,12 +285,13 @@ function Stars() {
 
 const SnakeCubeView: React.FC<SnakeCubeViewProps> = ({ data, revealCount }) => {
   const n = data.n || 3;
-  const toPos = useMemo(() => makeToPos(n), [n]);
+  const d = data.d || 3;
+  const toPos = useMemo(() => makeToPos(n, d), [n, d]);
 
   const gridData = useMemo(() => {
-    const vertices = generateAllVertices(n);
+    const vertices = generateAllVertices(n, d);
     return { vertices, n };
-  }, [n]);
+  }, [n, d]);
 
   // 튜브 반지름을 격자 간격에 비례시켜서 n이 커져도 부담스럽게 두꺼워지지 않게
   const spacing = BOX_SIZE / Math.max(n - 1, 1);

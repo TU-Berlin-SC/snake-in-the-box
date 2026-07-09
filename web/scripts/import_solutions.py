@@ -1,24 +1,22 @@
 """
-Converts the real solver output files in solutions/sol_coil_d3_n*.txt into
-the JSON schema the web viewer reads (app/data/coil_n*.json).
+Converts solver output files in solutions/sol_{type}_d{d}_n{n}.txt into the
+JSON schema the web viewer reads (app/data/{type}_d{d}_n{n}.json).
+
+Handles both problem types and any dimension:
+  - sol_coil_d3_n2.txt   -> coil (closed cycle), d=3
+  - sol_snake_d3_n3.txt  -> snake (open path), d=3
+  - sol_snake_d2_n8.txt  -> snake, d=2 (coords are 2-tuples)
+  - sol_coil_d7_n2.txt   -> SKIPPED (d>3 can't be visualized yet; prints a note)
 
 The .txt files come in two formats depending on which script produced them:
-
-  - one coordinate per line, e.g. "(0, 1, 0)" -- already in path order
-    (this is what most of the coil/ scripts write out)
-  - all coordinates on one line, comma-separated -- an unordered set of
-    active vertices (this is what the vertex-set formulation, e.g.
-    convert_me/coil_bigger_boxes.py, produces)
-
-Either way we just regex out every "(a, b, c)" tuple, then check whether
-consecutive tuples (including wrap-around) are grid-adjacent. If they are,
-the file was already ordered and we use it as-is. If not, we reconstruct
-the order with path_from_active_vertices (see export_to_json.py).
+  - one coordinate per line -- already in path order
+  - all coordinates on one line -- an unordered vertex set, in which case the
+    order is reconstructed via path_from_active_vertices (export_to_json.py)
 
 Usage:
     python3 scripts/import_solutions.py
-        (reads from ../solutions relative to this script, writes into
-        app/data/coil_n{N}.json)
+        (reads from ../../solutions relative to this script, writes into
+        ../app/data/)
 """
 
 import glob
@@ -27,11 +25,20 @@ import re
 
 from export_to_json import export_to_json, path_from_active_vertices
 
-COORD_RE = re.compile(r"\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)\)")
+FILENAME_RE = re.compile(r"sol_(snake|coil)_d(\d+)_n(\d+)\.txt$")
+TUPLE_RE = re.compile(r"\(([\d\s,]+)\)")
+
+# d > MAX_VISUALIZABLE_D is exported nowhere: the viewer can only draw 2D/3D.
+# (d=7,8 hypercube results would need a projection strategy first.)
+MAX_VISUALIZABLE_D = 3
 
 
 def parse_coords(text):
-    return [tuple(int(x) for x in m) for m in COORD_RE.findall(text)]
+    """Extract every (a, b, ...) tuple of any arity."""
+    pts = []
+    for m in TUPLE_RE.findall(text):
+        pts.append(tuple(int(x) for x in m.split(",")))
+    return pts
 
 
 def _manhattan1(a, b):
@@ -43,61 +50,88 @@ def is_already_ordered_cycle(pts):
     if len(pts) < 3:
         return False
     if len(set(pts)) != len(pts):
-        return False  # repeats -> not a simple cycle listing
-    for i in range(len(pts)):
-        a, b = pts[i], pts[(i + 1) % len(pts)]
-        if not _manhattan1(a, b):
-            return False
-    return True
+        return False
+    return all(_manhattan1(pts[i], pts[(i + 1) % len(pts)]) for i in range(len(pts)))
+
+
+def is_already_ordered_path(pts):
+    """Open path: consecutive adjacency required, but no wrap-around."""
+    if len(pts) < 2:
+        return False
+    if len(set(pts)) != len(pts):
+        return False
+    return all(_manhattan1(pts[i], pts[i + 1]) for i in range(len(pts) - 1))
 
 
 def canonicalize_cycle(pts):
     """
-    Purely cosmetic normalization for closed cycles: rotate so the cycle
-    starts at the lexicographically smallest vertex, and pick the direction
-    whose second vertex is smaller. Mathematically the cycle is unchanged --
-    this just makes the animation always start from the same predictable
-    corner regardless of how the solver/reconstruction happened to order it.
+    Cosmetic only: rotate the cycle to start at the lexicographically smallest
+    vertex, direction chosen so the second vertex is smaller. The cycle itself
+    is unchanged -- the animation just always starts from a predictable corner.
     """
     if len(pts) < 3:
         return pts
     start_idx = min(range(len(pts)), key=lambda i: pts[i])
     rotated = pts[start_idx:] + pts[:start_idx]
-    # two possible directions from the start vertex; pick the one whose
-    # next vertex is lexicographically smaller
     forward = rotated
     backward = [rotated[0]] + list(reversed(rotated[1:]))
     return forward if forward[1] <= backward[1] else backward
 
 
+def canonicalize_path(pts):
+    """Cosmetic only: orient open paths so the smaller endpoint comes first."""
+    if len(pts) < 2:
+        return pts
+    return pts if pts[0] <= pts[-1] else list(reversed(pts))
+
+
 def convert_file(txt_path, out_dir):
+    fname = os.path.basename(txt_path)
+    m = FILENAME_RE.search(fname)
+    if not m:
+        print(f"skip {fname}: filename doesn't match sol_{{type}}_d{{d}}_n{{n}}.txt")
+        return
+    algo_type, d, n = m.group(1), int(m.group(2)), int(m.group(3))
+
+    if d > MAX_VISUALIZABLE_D:
+        print(f"skip {fname}: d={d} > {MAX_VISUALIZABLE_D}, viewer can only draw 2D/3D "
+              "(needs a projection strategy first)")
+        return
+
     text = open(txt_path, encoding="utf-8").read()
     pts = parse_coords(text)
     if not pts:
-        print(f"skip {txt_path}: no coordinates found")
+        print(f"skip {fname}: no coordinates found")
         return
+    if len(pts[0]) != d:
+        print(f"warning: {fname} says d={d} but coords have {len(pts[0])} components")
 
-    d = len(pts[0])
-    n = max(max(p) for p in pts) + 1  # coords are 0-indexed -> n = max+1
+    if algo_type == "coil":
+        if is_already_ordered_cycle(pts):
+            ordered = pts
+        else:
+            ordered, is_cycle = path_from_active_vertices(pts)
+            if not is_cycle:
+                print(f"warning: {fname} reconstructed as an OPEN path, not a cycle")
+        ordered = canonicalize_cycle(ordered)
+    else:  # snake
+        if is_already_ordered_path(pts):
+            ordered = pts
+        else:
+            ordered, is_cycle = path_from_active_vertices(pts)
+            if is_cycle:
+                print(f"warning: {fname} reconstructed as a CYCLE, expected open path")
+        ordered = canonicalize_path(ordered)
 
-    if is_already_ordered_cycle(pts):
-        ordered = pts
-    else:
-        ordered, is_cycle = path_from_active_vertices(pts)
-        if not is_cycle:
-            print(f"warning: {txt_path} reconstructed as an OPEN path, not a cycle")
-
-    ordered = canonicalize_cycle(ordered)
-
-    out_path = os.path.join(out_dir, f"coil_n{n}.json")
+    out_path = os.path.join(out_dir, f"{algo_type}_d{d}_n{n}.json")
     export_to_json(
         ordered,
         d=d,
         n=n,
-        algorithm_type="coil",
+        algorithm_type=algo_type,
         out_path=out_path,
         is_verified_optimal=True,
-        note=f"Optimal coil solution for d={d}, n={n} (source: {os.path.basename(txt_path)}).",
+        note=f"Optimal {algo_type} solution for d={d}, n={n} (source: {fname}).",
     )
 
 
@@ -106,8 +140,8 @@ if __name__ == "__main__":
     solutions_dir = os.path.join(here, "..", "..", "solutions")
     out_dir = os.path.join(here, "..", "app", "data")
 
-    txt_files = sorted(glob.glob(os.path.join(solutions_dir, "sol_coil_d3_n*.txt")))
+    txt_files = sorted(glob.glob(os.path.join(solutions_dir, "sol_*_d*_n*.txt")))
     if not txt_files:
-        print(f"no sol_coil_d3_n*.txt files found under {solutions_dir}")
+        print(f"no sol_*_d*_n*.txt files found under {solutions_dir}")
     for txt_path in txt_files:
         convert_file(txt_path, out_dir)

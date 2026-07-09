@@ -1,0 +1,1 @@
+{"d": 2, "n": 3, "type": "snake", "is_cycle": false, "path": [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 1], [2, 0]], "is_dummy": false, "is_verified_optimal": true, "note": "Optimal snake solution for d=2, n=3 (source: sol_snake_d2_n3.txt)."}

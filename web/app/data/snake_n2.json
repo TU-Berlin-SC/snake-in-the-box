@@ -1,3 +1,0 @@
-{"d": 3, "n": 2, "type": "snake", "is_cycle": false, 
-"path": [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1], [1, 0, 0]], "is_dummy": true, "is_verified_optimal": false, 
-"note": "dummy data"}

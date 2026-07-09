@@ -4,40 +4,84 @@ import SnakeCubeView from "~/components/SnakeCubeView";
 import "../styles/Home.css";
 import type { AlgorithmType, SnakeData } from "../types/snake";
 
-const N_OPTIONS = [2, 3, 4, 5, 6];
 const TYPE_OPTIONS: { value: AlgorithmType; label: string }[] = [
   { value: "coil", label: "Coil" },
   { value: "snake", label: "Snake" },
 ];
 
-// snake_n*.json, coil_n*.json 전부 번들에 포함
+// {type}_d{d}_n{n}.json 전부 번들에 포함
 const dataModules = import.meta.glob<{ default: SnakeData }>(
-  "../data/*_n*.json",
+  "../data/*_d*_n*.json",
   { eager: true }
 );
 
-function getSnakeData(type: AlgorithmType, n: number): SnakeData | null {
+// 파일명에서 (type, d, n) 조합을 파싱해서 "실제로 존재하는 데이터"만 옵션으로 노출.
+// 파일이 없는 조합은 버튼 자체가 안 생기므로 missing-file 상태가 원천 차단됨.
+const FILE_RE = /(snake|coil)_d(\d+)_n(\d+)\.json$/;
+
+function getAvailable() {
+  const map = new Map<string, Set<number>>(); // `${type}:${d}` -> Set<n>
+  for (const path of Object.keys(dataModules)) {
+    const m = path.match(FILE_RE);
+    if (!m) continue;
+    const key = `${m[1]}:${m[2]}`;
+    if (!map.has(key)) map.set(key, new Set());
+    map.get(key)!.add(Number(m[3]));
+  }
+  return map;
+}
+
+function getSnakeData(type: AlgorithmType, d: number, n: number): SnakeData | null {
   const entry = Object.entries(dataModules).find(([path]) =>
-    path.endsWith(`${type}_n${n}.json`)
+    path.endsWith(`${type}_d${d}_n${n}.json`)
   );
   return entry ? entry[1].default : null;
 }
 
 export default function Home() {
+  const available = useMemo(getAvailable, []);
+
+  const [type, setType] = useState<AlgorithmType>("coil");
+  const [d, setD] = useState(3);
   const [n, setN] = useState(3);
-  const [type, setType] = useState<AlgorithmType>("coil"); // 실제 solve 결과가 있는 coil을 기본값으로
   const [revealCount, setRevealCount] = useState(1);
   const [playing, setPlaying] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const snake = useMemo(() => getSnakeData(type, n), [type, n]);
+  // 현재 type에서 사용 가능한 차원 목록 (예: coil -> [3], snake -> [2, 3])
+  const dOptions = useMemo(() => {
+    const dims = new Set<number>();
+    for (const key of available.keys()) {
+      const [t, dim] = key.split(":");
+      if (t === type) dims.add(Number(dim));
+    }
+    return [...dims].sort((a, b) => a - b);
+  }, [available, type]);
 
-  // n/type이 바뀌면 재생 중이던 걸 멈추고, 완성된 최종 결과를 바로 보여줌
+  // 현재 type+d에서 사용 가능한 n 목록 (d=2는 n이 커질 수 있으므로 동적으로)
+  const nOptions = useMemo(() => {
+    const set = available.get(`${type}:${d}`);
+    return set ? [...set].sort((a, b) => a - b) : [];
+  }, [available, type, d]);
+
+  // type이 바뀌었는데 현재 d가 그 type에 없으면 첫 번째 가능한 d로
+  useEffect(() => {
+    if (dOptions.length > 0 && !dOptions.includes(d)) setD(dOptions[0]);
+  }, [dOptions, d]);
+
+  // type/d가 바뀌었는데 현재 n이 없으면 첫 번째 가능한 n으로
+  useEffect(() => {
+    if (nOptions.length > 0 && !nOptions.includes(n)) setN(nOptions[0]);
+  }, [nOptions, n]);
+
+  const snake = useMemo(() => getSnakeData(type, d, n), [type, d, n]);
+
+  // n/d/type이 바뀌면 재생 중이던 걸 멈추고, 완성된 최종 결과를 바로 보여줌
   // (Tim: "the user should see the result immediately", 재생은 원하면 누르는 옵션)
   useEffect(() => {
     setPlaying(false);
     setRevealCount(snake ? snake.path.length : 1);
-  }, [n, type, snake]);
+  }, [n, d, type, snake]);
 
   useEffect(() => {
     if (!playing || !snake) return;
@@ -55,83 +99,78 @@ export default function Home() {
     };
   }, [playing, snake]);
 
+  const selectors = (
+    <div className="n-selector">
+      <select
+        value={type}
+        onChange={(e) => setType(e.target.value as AlgorithmType)}
+        className="rounded-lg border border-slate-700 bg-slate-900 text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-lime-400"
+      >
+        {TYPE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <select
+        value={d}
+        onChange={(e) => setD(Number(e.target.value))}
+        className="rounded-lg border border-slate-700 bg-slate-900 text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-lime-400"
+      >
+        {dOptions.map((dim) => (
+          <option key={dim} value={dim}>
+            d = {dim}
+          </option>
+        ))}
+      </select>
+      {nOptions.map((option) => (
+        <button
+          key={option}
+          onClick={() => setN(option)}
+          className={`n-button ${option === n ? "active" : ""}`}
+        >
+          n = {option}
+        </button>
+      ))}
+    </div>
+  );
+
   if (!snake) {
     return (
       <main className="home-container">
         <div className="header">
           <h1>
             🐍 Snake in the Box
-            <span className="badge">d = 3</span>
+            <span className="badge">d = {d}</span>
           </h1>
         </div>
-        <div className="n-selector">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as AlgorithmType)}
-            className="rounded-lg border border-slate-700 bg-slate-900 text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-lime-400"
-          >
-            {TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {N_OPTIONS.map((option) => (
-            <button
-              key={option}
-              onClick={() => setN(option)}
-              className={`n-button ${option === n ? "active" : ""}`}
-            >
-              n = {option}
-            </button>
-          ))}
-        </div>
+        {selectors}
         <p className="dummy-note">
-          ⚠️ No {type} solution file found for n = {n} (app/data/{type}_n
-          {n}.json is missing).
+          ⚠️ No {type} solution file found for d = {d}, n = {n}.
         </p>
       </main>
     );
   }
+
+  const gridLabel = d === 2 ? `${n}×${n}` : `${n}×${n}×${n}`;
 
   return (
     <main className="home-container">
       <div className="header">
         <h1>
           🐍 Snake in the Box
-          <span className="badge">d = 3</span>
+          <span className="badge">d = {d}</span>
         </h1>
         {/* TODO(Tim): swap for the exact mathematical description once he sends it */}
         <p className="subtitle">
           {type === "coil"
-            ? `Closed loop of ${snake.path.length} points on a ${n}×${n}×${n} grid, no two non-consecutive points adjacent.`
-            : `Open path of ${snake.path.length} points on a ${n}×${n}×${n} grid, no two non-consecutive points adjacent.`}
+            ? `Closed loop of ${snake.path.length} points on a ${gridLabel} grid, no two non-consecutive points adjacent.`
+            : `Open path of ${snake.path.length} points on a ${gridLabel} grid, no two non-consecutive points adjacent.`}
         </p>
       </div>
 
-      {/* type dropdown + N selector, same row */}
-      <div className="n-selector">
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value as AlgorithmType)}
-          className="rounded-lg border border-slate-700 bg-slate-900 text-white text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-lime-400"
-        >
-          {TYPE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        {N_OPTIONS.map((option) => (
-          <button
-            key={option}
-            onClick={() => setN(option)}
-            className={`n-button ${option === n ? "active" : ""}`}
-          >
-            n = {option}
-          </button>
-        ))}
-      </div>
+      {/* type + dimension dropdowns + N selector, same row */}
+      {selectors}
 
       {/* cube view */}
       <ClientOnly

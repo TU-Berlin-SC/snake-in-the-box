@@ -1,4 +1,5 @@
-export type Vertex = [number, number, number];
+// d=2면 [x, y], d=3이면 [x, y, z] — 차원에 따라 길이가 달라짐
+export type Vertex = number[];
 export type AlgorithmType = "snake" | "coil";
 
 export interface SnakeData {
@@ -10,11 +11,4 @@ export interface SnakeData {
   is_dummy: boolean;
   is_verified_optimal: boolean;
   note: string;
-}
-
-export interface AlgorithmOption {
-  id: string;
-  type: AlgorithmType;
-  label: string; // 드롭다운에 표시될 이름
-  script: string; // 원본 저장소에서 이 알고리즘을 계산하는 스크립트 경로
 }

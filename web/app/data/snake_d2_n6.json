@@ -1,0 +1,1 @@
+{"d": 2, "n": 6, "type": "snake", "is_cycle": false, "path": [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [5, 1], [5, 2], [4, 2], [4, 3], [3, 3], [2, 3], [2, 2], [1, 2], [0, 2], [0, 3], [0, 4], [0, 5], [1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [5, 4]], "is_dummy": false, "is_verified_optimal": true, "note": "Optimal snake solution for d=2, n=6 (source: sol_snake_d2_n6.txt)."}

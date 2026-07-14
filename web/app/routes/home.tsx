@@ -164,8 +164,8 @@ export default function Home() {
         {/* TODO(Tim): swap for the exact mathematical description once he sends it */}
         <p className="subtitle">
           {type === "coil"
-            ? `Closed loop of ${snake.path.length} points on a ${gridLabel} grid, no two non-consecutive points adjacent.`
-            : `Open path of ${snake.path.length} points on a ${gridLabel} grid, no two non-consecutive points adjacent.`}
+            ? `Longest induced cycle on the n x n x n grid graph.`
+            : `Longest induced path on the n x n x n grid graph.`}
         </p>
       </div>
 
@@ -177,7 +177,7 @@ export default function Home() {
         fallback={
           <div className="loading-placeholder">
             <div className="loading-spinner"></div>
-            <span>3D 뷰 불러오는 중...</span>
+            <span>Loading 3D View...</span>
           </div>
         }
       >

@@ -164,8 +164,8 @@ export default function Home() {
         {/* TODO(Tim): swap for the exact mathematical description once he sends it */}
         <p className="subtitle">
           {type === "coil"
-            ? `Longest induced cycle on the n x n x n grid graph.`
-            : `Longest induced path on the n x n x n grid graph.`}
+            ? `Longest induced cycle on the ${n} x ${n} x ${n} grid graph.`
+            : `Longest induced path on the ${n} x ${n} x ${n} grid graph.`}
         </p>
       </div>
 
